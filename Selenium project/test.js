@@ -50,8 +50,8 @@ async function exampleTest () {
         await driver.sleep(2000);
 
         // Validasi masuk ke halaman dashboard setelah login
-        let currentUrl = await driver.getCurrentUrl();
-        assert.strictEqual(currentUrl, 'https://www.saucedemo.com/inventory.html',true, 'User tidak berada di halaman dashboard setelah login');
+        let menuButton = await driver.findElement(By.id('react-burger-menu-btn'));
+        assert.strictEqual(await menuButton.isDisplayed(), true, 'menu button is not visible');
 
         //Klik tombol add to cart
         await driver.findElement(By.xpath("//button[@id='add-to-cart-sauce-labs-backpack']")).click();
@@ -82,34 +82,48 @@ async function exampleTest () {
         totalitem = await driver.findElement(By.css(".shopping_cart_badge")).getText();
         assert.strictEqual(totalitem.includes("4"),true,'Product berhasil ditambahkan menjadi 4"');
         
+        //Klik Add to cart
         await driver.findElement(By.xpath("//div[@id='shopping_cart_container']/a[1]")).click();
         await driver.sleep(2000);
 
+        //Validasi masuk ke halaman cart
+        let currentUrl = await driver.getCurrentUrl();
+        assert.strictEqual(currentUrl, 'https://www.saucedemo.com/cart.html',true, 'User tidak berada di halaman cart setelah klik cart');
+
+        // Scroll ke paling bawah
         await driver.executeScript("window.scrollTo(0, document.body.scrollHeight);");
         await driver.sleep(2000);
 
+        //Klik Checkout
         await driver.findElement(By.xpath("//button[@id='checkout']")).click();
         await driver.sleep(2000);
 
+        //Masukkan first name
         let First = await driver.findElement(By.xpath("//input[@id='first-name']"));
         await slowType(First, "Halmy", 100);
 
+        //Masukkan last name
         let Last = await driver.findElement(By.xpath("//input[@id='last-name']"));
         await slowType(Last, "AK", 100);
         
+        //Masukkan postal code
         let Zip = await driver.findElement(By.xpath("//input[@id='postal-code']"));
         await slowType(Zip, "1774", 100);
         await driver.sleep(2000);
 
+        //Klik Continue
         await driver.findElement(By.xpath("//input[@id='continue']")).click();
         await driver.sleep(2000);
         
+        // Scroll ke paling bawah
         await driver.executeScript("window.scrollTo(0, document.body.scrollHeight);");
         await driver.sleep(2000);
 
+        //Klik finish
         await driver.findElement(By.xpath("//button[@id='finish']")).click();
         await driver.sleep(2000);
 
+        //Klik Back to home
         await driver.findElement(By.xpath("//button[@id='back-to-products']")).click();
         await driver.sleep(4000);
 
