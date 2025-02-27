@@ -1,144 +1,187 @@
-const { Builder, By, Key, until } = require("selenium-webdriver");
-const assert = require("assert");
+const { Builder } = require("selenium-webdriver");
+const chrome = require('selenium-webdriver/chrome');
+const edge = require('selenium-webdriver/edge');
 
-// require("chromedriver");
-// const chrome = require("selenium-webdriver/chrome")
+// Validasi
+//const assert = require("assert");
 
-async function slowType(element, text, delay = 100) {
-    for (let char of text) {
-        await element.sendKeys(char);
-        await new Promise(resolve => setTimeout(resolve, delay)); // Delay tiap karakter
-    }
+// Page Object Model
+const LoginPage = require ("../Sesi8/pages/loginpage"); 
+const testData = require("../Sesi8/fixture/testData.json");
+const InventoryPage = require ("../Sesi8/pages/inventorypage");
+const Cart = require ("../Sesi8/pages/cart");
+const Information = require ("../Sesi8/pages/information");
+const Overview = require ("../Sesi8/pages/overview");
+
+// Screenshoot
+const fs = require("fs");
+const path = require("path");
+
+// Compare Screenshoot
+// const { CompareScreenshot } = require("../Sesi8/helper/visualtesting");
+
+
+async function exampleTest() {
+  // Menjalankan test untuk Chrome
+  await runTestsForBrowser("chrome");
+
+  // Menjalankan test untuk Edge
+  await runTestsForBrowser("MicrosoftEdge");
 }
 
-async function exampleTest () {
-    //Membuat koneksi dengan webdriver menggunakan chrome
-    let driver = await new Builder().forBrowser("chrome").build();
+// Full Page Screenshoot
+async function takeFullPageScreenshot(driver, filePath) {
+  // Ambil ukuran halaman penuh
+  await driver.manage().window().setRect({ width: 1920, height: 1080 });
+  // Menunggu selama 3 detik
+  await driver.sleep(3000);
+  // Ambil screenshot
+  const screenshot = await driver.takeScreenshot();
+  // Simpan screenshot dalam format base64
+  fs.writeFileSync(filePath, screenshot, "base64");
+}
 
-    //menambahkan chrome option sebagai user agent menyerupai browser asli
-    //let option = new chrome.Options();
+async function runTestsForBrowser (browserName) {
 
-    //perlu menambahkan argument juga
-    // options.addArguments("user-agent=Mozilla/5.0 (Windows Phone 10.0; Android 4.2.1; Microsoft; Lumia 640 XL LTE) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Mobile Safari/537.36 Edge/12.10166");
-    // options.addArguments("--disable-blink-features=AutomationControlled");
+    // Test Annotation: Mengelompokkan bebrapa test case
+    describe(`Saucedemo Belanja - ${browserName}`, function () {
+    // Menambahkan timeout karena menggunakan mocha
+    this.timeout(100000); 
+    let options;
+    let driver;
+    let loginpage; 
+    let inventoryPage;
+    let cart;
+    let information;
+    let overview;
+    // Test Hook: Dieksekusi sekali sebelum pengujian dijalankan
+    before(async function () {
+      // Menentukan opsi browser yang digunakan
+      if (browserName === "chrome") {
+      // Menjalankan browser dalam mode headless
+        options = new chrome.Options().addArguments("--headless=new");
+      } else if (browserName === "MicrosoftEdge") {
+        options = new edge.Options().addArguments("--headless=new");
+      }
+          // Membuka browser dan menginisialisasi webdriver
+           driver = await new Builder()
+          .forBrowser(browserName)
+          .setChromeOptions(browserName === "chrome" ? options : undefined)
+          .setEdgeOptions(browserName === "MicrosoftEdge" ? options : undefined)
+          .build();
 
-    //perlu membuat koneksi dengan driver juga
-    // let driver = new Builder()
-    // .forBrowser("chrome")
-    // .setChromeOptions(options)
-    // .build();
+          // Menghubungkan driver dengan class object
+          loginpage = new LoginPage(driver); 
+          inventoryPage = new InventoryPage(driver); 
+          cart = new Cart(driver);
+          information = new Information(driver);
+          overview = new Overview(driver);
 
-    //Exeception Handling & Conclusion
+          // Membuka url di browser
+          await loginpage.open(testData.baseUrl); 
+          console.log(`${browserName} : url berhasil dibuka`); 
 
-    try {
+          // Melakukan login
+          await loginpage.login(testData.username, testData.password);
 
-        // Maksimalkan window untuk dalam layar penuh
-        //await driver.manage().window().maximize();
+          // Memeriksa apakah login berhasil
+          if (!(await loginpage.verifyLoginSuccess())) {
+            console.log(`❌ Login GAGAL di ${browserName}`);
+            // Menentukan lokasi folder screenshot
+            const screenshotDir = path.join(__dirname, "../Sesi8/screenshots", browserName);
+          // Memeriksa folder screenshot  
+          if (!fs.existsSync(screenshotDir)) {
+            fs.mkdirSync(screenshotDir, { recursive: true }); // Buat folder jika belum ada
+            }
+            // Menentukan lokasi file akan disimpan
+            const screenshotPath = path.join(screenshotDir, "Login_Gagal.png");
+            // Mengambil screenshot
+            await takeFullPageScreenshot(driver, screenshotPath);
+            // Melewati semua test jika login gagal
+            this.skip(); 
+            } else {
+            console.log(`✅ Login BERHASIL di ${browserName}!`);
+            }
+    });
 
-        //membuka url di browser
-        await driver.get("https://saucedemo.com");
+    //Test Hook: Dieksekusi setiap test case selesai
+    afterEach(async function () {
+      // Menentukan lokasi folder screenshot
+      const screenshotDir = path.join(__dirname, "../Sesi8/screenshots", browserName);
+      // Memeriksa folder screenshot 
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true }); // Buat folder jika belum ada
+      }
+      // Ambil nama test case lalu ganti semua spasi dengan _ contoh: TC01_login
+      const testName = this.currentTest.title.replace(/\s+/g, "_"); 
+      // Ambil screenshot dengan halaman penuh lalu disimpan contoh: TC01_login.png
+      await takeFullPageScreenshot(driver, path.join(screenshotDir,`${testName}.png`));
+      console.log(`📸 Screenshot disimpan: ${browserName}/${testName}.png`);
+    });
 
-        //Melakukan sign in
-        let usernameField = await driver.findElement(By.xpath("//input[@id='user-name']"));
-        await slowType(usernameField, "standard_user", 100);
+    //Test Annotation: Test Case
+    it("TC01 login", async function () {
+    console.log("Login berhasil, lanjut ke test berikutnya.");
+    });
 
-        let passwordField = await driver.findElement(By.xpath("//input[@id='password']"));
-        await slowType(passwordField, "secret_sauce", 100);
+    it("TC02 berhasil add to cart", async function () {
+    //Product 1
+    await inventoryPage.product1();
 
-        //Klik tombol login
-        await driver.findElement(By.xpath("//input[@id='login-button']")).click();
-        await driver.sleep(2000);
+    //Product 2
+    await inventoryPage.product2();
 
-        // Validasi masuk ke halaman dashboard setelah login
-        let menuButton = await driver.findElement(By.id('react-burger-menu-btn'));
-        assert.strictEqual(await menuButton.isDisplayed(), true, 'menu button is not visible');
+    //Klik Add to cart
+    await inventoryPage.addtocart();
 
-        //Klik tombol add to cart
-        await driver.findElement(By.xpath("//button[@id='add-to-cart-sauce-labs-backpack']")).click();
-        await driver.sleep(2000);
+    console.log("add to cart");
+    });
 
-        // Validasi produk ditambahkan menjadi 1
-        let totalitem = await driver.findElement(By.css(".shopping_cart_badge")).getText();
-        assert.strictEqual(totalitem.includes("1"),true,'Product berhasil ditambahkan menjadi 1"');
-
-        await driver.findElement(By.xpath("//button[@id='add-to-cart-sauce-labs-bike-light']")).click();
-        await driver.sleep(1000);
-
-        // Validasi produk ditambahkan menjadi 2
-        totalitem = await driver.findElement(By.css(".shopping_cart_badge")).getText();
-        assert.strictEqual(totalitem.includes("2"),true,'Product berhasil ditambahkan menjadi 2"');
+    it("TC03 berhasil checkout", async function () {
+    //Klik Checkout
+    await cart.checkout();
         
-        await driver.findElement(By.xpath("//button[@id='add-to-cart-sauce-labs-bolt-t-shirt']")).click();
-        await driver.sleep(1000);
+    console.log("checkout");
+    });
 
-        // Validasi produk ditambahkan menjadi 3
-        totalitem = await driver.findElement(By.css(".shopping_cart_badge")).getText();
-        assert.strictEqual(totalitem.includes("3"),true,'Product berhasil ditambahkan menjadi 3"');
+    it("TC04 berhasil input data diri", async function () {
+    //Masukkan first name
+    await information.firstname(testData.information.firstname);
+    console.log (testData.information.firstname);
+    //Masukkan last name
+    await information.lastname(testData.information.lastname);
+    console.log (testData.information.lastname);
+    //Masukkan postal code
+    await information.postalcode(testData.information.postalcode);
+    console.log (testData.information.postalcode);
+    //Klik Continue
+    await information.continue();
 
-        await driver.findElement(By.xpath("//button[@id='add-to-cart-sauce-labs-fleece-jacket']")).click();
-        await driver.sleep(1000);
+    console.log("input data diri");
 
-        // Validasi produk ditambahkan menjadi 4
-        totalitem = await driver.findElement(By.css(".shopping_cart_badge")).getText();
-        assert.strictEqual(totalitem.includes("4"),true,'Product berhasil ditambahkan menjadi 4"');
-        
-        //Klik Add to cart
-        await driver.findElement(By.xpath("//div[@id='shopping_cart_container']/a[1]")).click();
-        await driver.sleep(2000);
+    });
 
-        //Validasi masuk ke halaman cart
-        let currentUrl = await driver.getCurrentUrl();
-        assert.strictEqual(currentUrl, 'https://www.saucedemo.com/cart.html',true, 'User tidak berada di halaman cart setelah klik cart');
+    it("TC05 berhasil belanja", async function () {
+    //Klik finish
+    await overview.finish();
 
-        // Scroll ke paling bawah
-        await driver.executeScript("window.scrollTo(0, document.body.scrollHeight);");
-        await driver.sleep(2000);
+    console.log("belanja");
 
-        //Klik Checkout
-        await driver.findElement(By.xpath("//button[@id='checkout']")).click();
-        await driver.sleep(2000);
+    });
 
-        //Masukkan first name
-        let First = await driver.findElement(By.xpath("//input[@id='first-name']"));
-        await slowType(First, "Halmy", 100);
+    it("TC06 berhasil kembali ke home", async function () {
+    //Klik Back to home
+    await inventoryPage.home();
+    console.log("kembali ke home");
+    });
 
-        //Masukkan last name
-        let Last = await driver.findElement(By.xpath("//input[@id='last-name']"));
-        await slowType(Last, "AK", 100);
-        
-        //Masukkan postal code
-        let Zip = await driver.findElement(By.xpath("//input[@id='postal-code']"));
-        await slowType(Zip, "1774", 100);
-        await driver.sleep(2000);
-
-        //Klik Continue
-        await driver.findElement(By.xpath("//input[@id='continue']")).click();
-        await driver.sleep(2000);
-        
-        // Scroll ke paling bawah
-        await driver.executeScript("window.scrollTo(0, document.body.scrollHeight);");
-        await driver.sleep(2000);
-
-        //Klik finish
-        await driver.findElement(By.xpath("//button[@id='finish']")).click();
-        await driver.sleep(2000);
-
-        //Klik Back to home
-        await driver.findElement(By.xpath("//button[@id='back-to-products']")).click();
-        await driver.sleep(4000);
-
-        //simulate user behavior typing hello world
-        // await searchBox.sendKeys("Hello World", Key.RETURN)
-        // await driver.wait(until.elementLocated(By.id(result-state)), 10000) //menunggu 10 detik
-
-        // let title = await driver.getTitle()
-        // console.log(`Page title is : ${title}`)
-
-    } finally {
-
+    //Test Hook: Dieksekusi sekali setelah pengujjian dijalankan
+    after(async function () {
+    console.log("testing " + browserName);
     await driver.quit();
+    });
 
-    }
-}
+    });
+  }
 
 exampleTest();
